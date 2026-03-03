@@ -51,10 +51,14 @@ class EmailSender:
 
     def _send_once(self, content: str, subject: str) -> bool:
         """执行一次邮件发送"""
+        if not self.config.to_emails:
+            print("错误：未配置收件人邮箱")
+            return False
+
         # 创建邮件对象
         message = MIMEMultipart('alternative')
         message['From'] = Header(self.config.email)
-        message['To'] = Header(self.config.to_email)
+        message['To'] = Header(', '.join(self.config.to_emails), 'utf-8')
         message['Subject'] = Header(subject, 'utf-8')
 
         # 添加 HTML 内容
@@ -72,8 +76,8 @@ class EmailSender:
 
         # 登录并发送
         server.login(self.config.email, self.config.auth_code)
-        server.sendmail(self.config.email, [self.config.to_email], message.as_string())
+        server.sendmail(self.config.email, self.config.to_emails, message.as_string())
         server.quit()
 
-        print("邮件发送成功")
+        print(f"邮件发送成功，收件人: {', '.join(self.config.to_emails)}")
         return True

@@ -29,10 +29,18 @@ cp .env.example .env
 
 编辑 `.env` 文件，填入以下信息：
 
+**单个收件人：**
 ```env
 QQ_EMAIL=your_qq_email@qq.com
 QQ_AUTH_CODE=your_qq_auth_code
 TO_EMAIL=recipient@example.com
+```
+
+**多个收件人（用逗号或分号分隔）：**
+```env
+QQ_EMAIL=your_qq_email@qq.com
+QQ_AUTH_CODE=your_qq_auth_code
+TO_EMAIL=user1@example.com,user2@example.com,user3@example.com
 ```
 
 ### 3. 安装依赖
@@ -57,7 +65,7 @@ python src/main.py
 |--------------|------|------|
 | `QQ_EMAIL` | 发件 QQ 邮箱 | `123456789@qq.com` |
 | `QQ_AUTH_CODE` | QQ 邮箱授权码 | 在邮箱设置中生成 |
-| `TO_EMAIL` | 收件人邮箱 | `recipient@example.com` |
+| `TO_EMAIL` | 收件人邮箱（支持多个，用逗号分隔） | `user1@example.com,user2@example.com` |
 
 ### 获取 QQ 邮箱授权码
 
