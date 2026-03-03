@@ -1,0 +1,32 @@
+"""
+配置管理模块
+从环境变量读取配置信息
+"""
+import os
+from dataclasses import dataclass
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+@dataclass
+class EmailConfig:
+    """邮件配置"""
+    smtp_server: str = os.getenv("SMTP_SERVER", "smtp.qq.com")
+    smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
+    email: str = os.getenv("QQ_EMAIL", "")
+    auth_code: str = os.getenv("QQ_AUTH_CODE", "")
+    to_email: str = os.getenv("TO_EMAIL", "")
+
+
+@dataclass
+class Config:
+    """全局配置"""
+    email: EmailConfig = EmailConfig()
+    hltv_base_url: str = os.getenv("HLTV_BASE_URL", "https://hltv.org")
+    steam_app_id: int = int(os.getenv("STEAM_APP_ID", "730"))
+
+
+def load_config() -> Config:
+    """加载配置"""
+    return Config()
