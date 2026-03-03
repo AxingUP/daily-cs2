@@ -30,7 +30,7 @@ class EmailConfig:
 @dataclass
 class Config:
     """全局配置"""
-    email: EmailConfig = EmailConfig()
+    email: EmailConfig = field(default_factory=EmailConfig)
     hltv_base_url: str = os.getenv("HLTV_BASE_URL", "https://hltv.org")
     steam_app_id: int = int(os.getenv("STEAM_APP_ID", "730"))
 
