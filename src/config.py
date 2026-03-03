@@ -9,16 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def _get_to_emails() -> list[str]:
-    """获取收件人邮箱列表"""
-    to_email_str = os.getenv("TO_EMAIL", "")
-    if not to_email_str:
-        return []
-    # 支持逗号或分号分隔的邮箱
-    emails = [e.strip() for e in to_email_str.replace(';', ',').split(',')]
-    return [e for e in emails if e]
-
-
 @dataclass
 class EmailConfig:
     """邮件配置"""
@@ -26,7 +16,15 @@ class EmailConfig:
     smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
     email: str = os.getenv("QQ_EMAIL", "")
     auth_code: str = os.getenv("QQ_AUTH_CODE", "")
-    to_emails: list[str] = field(default_factory=_get_to_emails)
+    to_emails: list[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        """在实例化后初始化收件人邮箱列表"""
+        to_email_str = os.getenv("TO_EMAIL", "")
+        if to_email_str:
+            # 支持逗号或分号分隔的邮箱
+            emails = [e.strip() for e in to_email_str.replace(';', ',').split(',')]
+            self.to_emails = [e for e in emails if e]
 
 
 @dataclass
