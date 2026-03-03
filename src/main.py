@@ -2,6 +2,12 @@
 CS2 每日资讯主程序
 """
 import sys
+import os
+from pathlib import Path
+
+# 添加 src 目录到 Python 路径
+src_dir = Path(__file__).parent
+sys.path.insert(0, str(src_dir))
 
 from config import load_config
 from scrapers import HLTVScraper, SteamNewsScraper
