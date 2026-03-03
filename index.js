@@ -1,7 +1,6 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
-const https = require('https');
-const http = require('http');
+const { HLTV } = require('hltv-api');
 
 /**
  * Logger utility
@@ -13,135 +12,25 @@ const logger = {
 };
 
 /**
- * Make HTTP request with retry logic
- * @param {string} url - URL to fetch
- * @param {Object} options - Request options
- * @param {number} retries - Number of retries
- * @returns {Promise<string>}
- */
-function fetchWithRetry(url, options = {}, retries = 3, redirectCount = 0) {
-  return new Promise((resolve, reject) => {
-    const makeRequest = (attempt) => {
-      const protocol = url.startsWith('https') ? https : http;
-
-      const req = protocol.request(url, options, (res) => {
-        let data = '';
-
-        // Handle redirects (301, 302, 307, 308)
-        if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
-          if (redirectCount >= 5) {
-            reject(new Error('Too many redirects'));
-            return;
-          }
-          logger.info(`Redirecting to: ${res.headers.location}`);
-          fetchWithRetry(res.headers.location, options, 0, redirectCount + 1)
-            .then(resolve)
-            .catch(reject);
-          return;
-        }
-
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-
-        res.on('end', () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(data);
-          } else if (res.statusCode === 403) {
-            // Rate limited, try with delay
-            if (attempt < retries) {
-              logger.info(`Rate limited (403), retrying in 5 seconds... (Attempt ${attempt + 1}/${retries})`);
-              setTimeout(() => makeRequest(attempt + 1), 5000);
-            } else {
-              reject(new Error(`Failed after ${retries} attempts. Status: ${res.statusCode}`));
-            }
-          } else {
-            reject(new Error(`Request failed with status: ${res.statusCode}`));
-          }
-        });
-      });
-
-      req.on('error', (error) => {
-        if (attempt < retries) {
-          logger.info(`Network error, retrying in 3 seconds... (Attempt ${attempt + 1}/${retries})`);
-          setTimeout(() => makeRequest(attempt + 1), 3000);
-        } else {
-          reject(error);
-        }
-      });
-
-      req.setTimeout(30000, () => {
-        req.destroy();
-        if (attempt < retries) {
-          logger.info(`Request timeout, retrying... (Attempt ${attempt + 1}/${retries})`);
-          setTimeout(() => makeRequest(attempt + 1), 3000);
-        } else {
-          reject(new Error('Request timeout'));
-        }
-      });
-
-      req.end();
-    };
-
-    makeRequest(0);
-  });
-}
-
-/**
- * Fetch CS2 news from HLTV
+ * Fetch CS2 news from HLTV API
  * @returns {Promise<Array>}
  */
 async function fetchCS2News() {
   try {
-    logger.info('Fetching CS2 news from HLTV...');
+    logger.info('Fetching CS2 news from HLTV API...');
 
-    // Use HLTV's news feed
-    const url = 'https://www.hltv.org/news';
+    const news = await HLTV.getNews();
 
-    const options = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://www.google.com/',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'cross-site',
-        'Sec-Fetch-User': '?1',
-        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Upgrade-Insecure-Requests': '1',
-        'Connection': 'keep-alive',
-        'Cache-Control': 'max-age=0',
-        'DNT': '1'
-      }
-    };
+    // Format news items
+    const formattedNews = news.slice(0, 10).map(item => ({
+      id: item.id || Date.now().toString(),
+      title: item.title || 'No title',
+      url: item.link || `https://www.hltv.org/news/${item.id || ''}`,
+      date: new Date().toISOString()
+    }));
 
-    const html = await fetchWithRetry(url, options);
-
-    // Parse news from HTML (simplified version)
-    const news = [];
-    const titleRegex = /<a href="\/news\/(\d+\/[^"]+)"[^>]*>([^<]+)<\/a>/g;
-    let match;
-
-    while ((match = titleRegex.exec(html)) !== null && news.length < 10) {
-      const id = match[1];
-      const title = match[2].trim();
-
-      if (title) {
-        news.push({
-          id,
-          title,
-          url: `https://www.hltv.org/news/${id}`,
-          date: new Date().toISOString()
-        });
-      }
-    }
-
-    logger.success(`Fetched ${news.length} news items`);
-    return news;
+    logger.success(`Fetched ${formattedNews.length} news items`);
+    return formattedNews;
   } catch (error) {
     logger.error('Failed to fetch CS2 news', error);
     return [];
@@ -149,64 +38,58 @@ async function fetchCS2News() {
 }
 
 /**
- * Fetch matches from HLTV
+ * Fetch matches from HLTV API
  * @returns {Promise<Array>}
  */
 async function fetchMatches() {
   try {
-    logger.info('Fetching CS2 matches from HLTV...');
+    logger.info('Fetching CS2 matches from HLTV API...');
 
-    // HLTV matches page
-    const url = 'https://www.hltv.org/matches';
+    // Get live matches
+    const liveMatches = await HLTV.getMatches({ pages: 1 });
 
-    const options = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://www.google.com/',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'cross-site',
-        'Sec-Fetch-User': '?1',
-        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Upgrade-Insecure-Requests': '1',
-        'Connection': 'keep-alive',
-        'Cache-Control': 'max-age=0',
-        'DNT': '1'
+    // Get upcoming matches
+    const upcomingMatches = await HLTV.getMatches({ pages: 1 });
+
+    // Format match items
+    const formattedMatches = [];
+
+    // Process live matches
+    if (liveMatches && Array.isArray(liveMatches)) {
+      for (const match of liveMatches.slice(0, 5)) {
+        if (match.live) {
+          formattedMatches.push({
+            id: match.id || Date.now().toString(),
+            team1: match.team1?.name || 'Unknown',
+            team2: match.team2?.name || 'Unknown',
+            mapInfo: match.maps?.map(m => m.name).join(', ') || 'Live now',
+            status: 'LIVE',
+            url: match.link || `https://www.hltv.org/matches/${match.id || ''}`
+          });
+        }
       }
-    };
-
-    const html = await fetchWithRetry(url, options);
-
-    // Parse matches from HTML
-    const matches = [];
-
-    // Parse live matches
-    const liveMatchRegex = /<a class="match a-reset" href="\/matches\/(\d+)\/[^"]+">[\s\S]*?<div class="teamName">([^<]+)<\/div>[\s\S]*?<div class="teamName">([^<]+)<\/div>[\s\S]*?<div class="map-text[^"]*">([^<]*)<\/div>/g;
-    let match;
-
-    while ((match = liveMatchRegex.exec(html)) !== null && matches.length < 10) {
-      const id = match[1];
-      const team1 = match[2].trim();
-      const team2 = match[3].trim();
-      const mapInfo = match[4].trim();
-
-      matches.push({
-        id,
-        team1,
-        team2,
-        mapInfo: mapInfo || 'Live now',
-        status: 'LIVE',
-        url: `https://www.hltv.org/matches/${id}`
-      });
     }
 
-    logger.success(`Fetched ${matches.length} matches`);
-    return matches;
+    // Process upcoming matches
+    if (upcomingMatches && Array.isArray(upcomingMatches)) {
+      const upcoming = upcomingMatches
+        .filter(m => !m.live && m.event)
+        .slice(0, 5);
+
+      for (const match of upcoming) {
+        formattedMatches.push({
+          id: match.id || Date.now().toString(),
+          team1: match.team1?.name || 'Unknown',
+          team2: match.team2?.name || 'Unknown',
+          mapInfo: match.date ? new Date(match.date).toLocaleDateString('zh-CN') : 'Upcoming',
+          status: 'UPCOMING',
+          url: match.link || `https://www.hltv.org/matches/${match.id || ''}`
+        });
+      }
+    }
+
+    logger.success(`Fetched ${formattedMatches.length} matches`);
+    return formattedMatches;
   } catch (error) {
     logger.error('Failed to fetch matches', error);
     return [];
@@ -313,6 +196,16 @@ function generateEmailContent(news, matches) {
       font-weight: bold;
       margin-right: 10px;
     }
+    .match-upcoming {
+      display: inline-block;
+      background-color: #00a8ff;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-right: 10px;
+    }
     .match-teams {
       font-size: 16px;
       font-weight: 600;
@@ -379,9 +272,12 @@ function generateEmailContent(news, matches) {
 `;
   if (matches.length > 0) {
     matches.forEach(item => {
+      const statusBadge = item.status === 'LIVE'
+        ? '<span class="match-live">LIVE</span>'
+        : '<span class="match-upcoming">UPCOMING</span>';
       content += `
       <div class="match-item">
-        ${item.status === 'LIVE' ? '<span class="match-live">LIVE</span>' : ''}
+        ${statusBadge}
         <div class="match-teams">${item.team1} vs ${item.team2}</div>
         <div class="match-map">${item.mapInfo}</div>
         <a href="${item.url}" class="match-link">查看详情 &rarr;</a>
