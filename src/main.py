@@ -2,17 +2,16 @@
 CS2 每日资讯主程序
 """
 import sys
-import os
 from pathlib import Path
 
-# 添加 src 目录到 Python 路径
-src_dir = Path(__file__).parent
-sys.path.insert(0, str(src_dir))
+# 将 src 的父目录添加到 Python 路径，使 src 成为一个可导入的包
+parent_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(parent_dir))
 
-from config import load_config
-from scrapers import HLTVScraper, SteamNewsScraper
-from formatters import EmailFormatter
-from email_sender import EmailSender
+from src.config import load_config
+from src.scrapers import HLTVScraper, SteamNewsScraper
+from src.formatters import EmailFormatter
+from src.email_sender import EmailSender
 
 
 def main():
