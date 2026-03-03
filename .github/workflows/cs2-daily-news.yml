@@ -1,29 +1,57 @@
 name: CS2 Daily News
 
 on:
+  # Run every day at 7:00 AM Beijing Time (UTC+8)
+  # Beijing time 7:00 AM = UTC 23:00 (previous day)
   schedule:
-    - cron: '0 0 * * *'  # UTC 0:00 = 北京时间 8:00
-  workflow_dispatch:      # 支持手动触发
+    - cron: '0 23 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+  # Optional: Run on push to main for testing
+  push:
+    branches:
+      - main
 
 jobs:
   fetch-and-send:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: npm ci
 
       - name: Run CS2 Daily News
-        run: python src/main.py
         env:
-          QQ_EMAIL: ${{ secrets.QQ_EMAIL }}
-          QQ_AUTH_CODE: ${{ secrets.QQ_AUTH_CODE }}
-          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          # SMTP Configuration - Use GitHub Secrets for security
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          # Email Configuration
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          # HLTV Configuration (optional)
+          HLTV_BASE_URL: ${{ secrets.HLTV_BASE_URL }}
+        run: node index.js
+
+      - name: Report status
+        if: always()
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✅ CS2 Daily News sent successfully"
+          else
+            echo "❌ Failed to send CS2 Daily News"
+            exit 1
+          fi

@@ -1,84 +1,135 @@
-# CS2 每日资讯
+# CS2 Daily News
 
-自动获取 CS2 每日信息（赛事赛程、游戏更新），并通过 QQ 邮箱 SMTP 发送到指定邮箱。
+自动化获取 CS2 每日新闻和赛事，并通过邮件发送的 GitHub Actions 工作流。
 
 ## 功能特性
 
-- 🏆 自动获取今日比赛结果
-- 📅 自动获取即将进行的比赛赛程
-- 📝 自动获取 CS2 游戏更新和新闻
-- 📧 精美的 HTML 邮件格式
-- ⏰ 每日北京时间早上 8:00 自动发送
+- 📰 从 HLTV 获取 CS2 最新新闻
+- ⚔️ 获取正在进行和即将进行的赛事信息
+- 📧 每天早上 7 点（北京时间）自动发送精美 HTML 邮件
+- 🔄 内置重试机制，自动处理网络错误
+- 📬 支持多个收件人
+- 🚫 使用 GitHub Secrets 安全存储敏感信息
 
-## 快速开始
+## 配置步骤
 
-### 1. 克隆项目
+### 1. 克隆仓库
 
 ```bash
 git clone https://github.com/your-username/daily-cs2.git
 cd daily-cs2
 ```
 
-### 2. 配置环境变量
+### 2. 配置 GitHub Secrets
 
-复制 `.env.example` 为 `.env` 并填入配置：
+在 GitHub 仓库中进入 `Settings` -> `Secrets and variables` -> `Actions`，添加以下 Secrets：
 
+| Secret 名称 | 说明 | 示例 |
+|------------|------|------|
+| `SMTP_HOST` | SMTP 服务器地址 | `smtp.gmail.com` |
+| `SMTP_PORT` | SMTP 端口 | `587` |
+| `SMTP_SECURE` | 是否使用 SSL | `false` |
+| `SMTP_USER` | 邮箱用户名 | `your-email@gmail.com` |
+| `SMTP_PASSWORD` | 邮箱密码/应用专用密码 | `your-app-password` |
+| `EMAIL_FROM` | 发件人显示名称 | `CS2 Daily News <your-email@gmail.com>` |
+| `EMAIL_TO` | 收件人列表（逗号分隔） | `recipient1@example.com,recipient2@example.com` |
+| `HLTV_BASE_URL` | HLTV 基础 URL（可选） | `https://hltv.org` |
+
+### 3. 常用 SMTP 配置
+
+#### Gmail
+```
+SMTP_HOST: smtp.gmail.com
+SMTP_PORT: 587
+SMTP_SECURE: false
+SMTP_USER: your-email@gmail.com
+SMTP_PASSWORD: [使用应用专用密码]
+```
+
+获取 Gmail 应用专用密码：
+1. 进入 Google 账户设置
+2. 安全性 -> 两步验证
+3. 应用专用密码 -> 生成新密码
+
+#### QQ 邮箱
+```
+SMTP_HOST: smtp.qq.com
+SMTP_PORT: 587
+SMTP_SECURE: false
+SMTP_USER: your-email@qq.com
+SMTP_PASSWORD: [使用授权码]
+```
+
+#### 163 邮箱
+```
+SMTP_HOST: smtp.163.com
+SMTP_PORT: 465
+SMTP_SECURE: true
+SMTP_USER: your-email@163.com
+SMTP_PASSWORD: [使用授权码]
+```
+
+#### Outlook
+```
+SMTP_HOST: smtp-mail.outlook.com
+SMTP_PORT: 587
+SMTP_SECURE: false
+SMTP_USER: your-email@outlook.com
+SMTP_PASSWORD: [你的密码]
+```
+
+### 4. 手动触发测试
+
+在 GitHub 仓库中进入 `Actions` -> `CS2 Daily News` -> 点击 `Run workflow` 手动触发工作流进行测试。
+
+## 工作流说明
+
+### 调度时间
+工作流默认在每天北京时间早上 7:00 自动执行（UTC 时间 23:00）。
+
+### 执行流程
+1. 拉取代码仓库
+2. 设置 Node.js 环境
+3. 安装依赖包
+4. 执行 `node index.js` 获取数据并发送邮件
+5. 报告执行状态
+
+### 错误处理
+代码内置了完善的错误处理机制：
+- **网络错误重试**：请求失败时自动重试 3 次
+- **403 限流处理**：遇到限流时等待 5 秒后重试
+- **超时处理**：请求超时 30 秒后自动重试
+- **连接验证**：发送邮件前验证 SMTP 连接
+
+## 本地开发
+
+### 安装依赖
+```bash
+npm install
+```
+
+### 配置环境变量
+复制 `.env.example` 为 `.env` 并填写配置：
 ```bash
 cp .env.example .env
 ```
 
-编辑 `.env` 文件，填入以下信息：
-
-**单个收件人：**
+编辑 `.env` 文件：
 ```env
-QQ_EMAIL=your_qq_email@qq.com
-QQ_AUTH_CODE=your_qq_auth_code
-TO_EMAIL=recipient@example.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+EMAIL_FROM=CS2 Daily News <your-email@gmail.com>
+EMAIL_TO=recipient1@example.com,recipient2@example.com
+HLTV_BASE_URL=https://hltv.org
 ```
 
-**多个收件人（用逗号或分号分隔）：**
-```env
-QQ_EMAIL=your_qq_email@qq.com
-QQ_AUTH_CODE=your_qq_auth_code
-TO_EMAIL=user1@example.com,user2@example.com,user3@example.com
-```
-
-### 3. 安装依赖
-
+### 运行
 ```bash
-pip install -r requirements.txt
+npm start
 ```
-
-### 4. 本地测试
-
-```bash
-python src/main.py
-```
-
-## GitHub Actions 部署
-
-### 配置 GitHub Secrets
-
-在 GitHub 仓库的 Settings -> Secrets and variables -> Actions 中添加以下 Secrets：
-
-| Secret 名称 | 说明 | 示例 |
-|--------------|------|------|
-| `QQ_EMAIL` | 发件 QQ 邮箱 | `123456789@qq.com` |
-| `QQ_AUTH_CODE` | QQ 邮箱授权码 | 在邮箱设置中生成 |
-| `TO_EMAIL` | 收件人邮箱（支持多个，用逗号分隔） | `user1@example.com,user2@example.com` |
-
-### 获取 QQ 邮箱授权码
-
-1. 登录 QQ 邮箱网页版
-2. 进入「设置」→「账户」
-3. 找到「POP3/IMAP/SMTP/Exchange/CardDAV/CalDAV服务」
-4. 开启「IMAP/SMTP服务」
-5. 按提示发送短信验证
-6. 获取授权码（16位字符串）
-
-### 手动触发
-
-在 GitHub 仓库的 Actions 页面，选择「CS2 Daily News」工作流，点击「Run workflow」即可手动触发。
 
 ## 项目结构
 
@@ -86,42 +137,20 @@ python src/main.py
 daily-cs2/
 ├── .github/
 │   └── workflows/
-│       └── cs2-daily-news.yml       # GitHub Action 工作流
-├── src/
-│   ├── __init__.py
-│   ├── main.py                       # 主程序入口
-│   ├── config.py                     # 配置管理
-│   ├── scrapers/
-│   │   ├── __init__.py
-│   │   ├── base_scraper.py           # 爬虫基类
-│   │   ├── hltv.py                   # HLTV 赛事数据爬取
-│   │   └── steam_news.py             # Steam 新闻爬取
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── match.py                  # 比赛数据模型
-│   ├── formatters/
-│   │   ├── __init__.py
-│   │   └── email_formatter.py       # 邮件格式化
-│   └── email_sender.py               # 邮件发送
-├── requirements.txt                  # Python 依赖
-├── .env.example                      # 环境变量示例
-└── README.md                         # 项目文档
+│       └── cs2-daily-news.yml    # GitHub Actions 工作流配置
+├── .env.example                  # 环境变量示例
+├── index.js                      # 主程序
+├── package.json                  # Node.js 依赖配置
+└── README.md                     # 项目说明
 ```
 
-## 技术栈
+## 邮件模板
 
-- **Python 3.11+**
-- **requests**: HTTP 请求
-- **BeautifulSoup4**: HTML 解析
-- **python-dotenv**: 环境变量管理
-- **GitHub Actions**: 自动化工作流
-
-## 注意事项
-
-- HLTV 可能修改页面结构，需要持续维护
-- GitHub Actions 有运行时间限制（免费版 2000 分钟/月）
-- 邮件发送失败时会有重试机制（最多重试 3 次）
-- 时区处理：GitHub Action 运行在 UTC，程序内部转换为北京时间
+邮件采用精美的 HTML 模板，包含：
+- 📅 当前日期
+- 📰 每日新闻列表
+- ⚔️ 实时赛事进程
+- 🔗 新闻和赛事详情链接
 
 ## 许可证
 
