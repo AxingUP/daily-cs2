@@ -19,13 +19,26 @@ const logger = {
  * @param {number} retries - Number of retries
  * @returns {Promise<string>}
  */
-function fetchWithRetry(url, options = {}, retries = 3) {
+function fetchWithRetry(url, options = {}, retries = 3, redirectCount = 0) {
   return new Promise((resolve, reject) => {
     const makeRequest = (attempt) => {
       const protocol = url.startsWith('https') ? https : http;
 
       const req = protocol.request(url, options, (res) => {
         let data = '';
+
+        // Handle redirects (301, 302, 307, 308)
+        if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+          if (redirectCount >= 5) {
+            reject(new Error('Too many redirects'));
+            return;
+          }
+          logger.info(`Redirecting to: ${res.headers.location}`);
+          fetchWithRetry(res.headers.location, options, 0, redirectCount + 1)
+            .then(resolve)
+            .catch(reject);
+          return;
+        }
 
         res.on('data', (chunk) => {
           data += chunk;
@@ -83,7 +96,7 @@ async function fetchCS2News() {
     logger.info('Fetching CS2 news from HLTV...');
 
     // Use HLTV's news feed
-    const url = 'https://hltv.org/news';
+    const url = 'https://www.hltv.org/news';
 
     const options = {
       headers: {
@@ -111,7 +124,7 @@ async function fetchCS2News() {
         news.push({
           id,
           title,
-          url: `https://hltv.org/news/${id}`,
+          url: `https://www.hltv.org/news/${id}`,
           date: new Date().toISOString()
         });
       }
@@ -134,7 +147,7 @@ async function fetchMatches() {
     logger.info('Fetching CS2 matches from HLTV...');
 
     // HLTV matches page
-    const url = 'https://hltv.org/matches';
+    const url = 'https://www.hltv.org/matches';
 
     const options = {
       headers: {
@@ -168,7 +181,7 @@ async function fetchMatches() {
         team2,
         mapInfo: mapInfo || 'Live now',
         status: 'LIVE',
-        url: `https://hltv.org/matches/${id}`
+        url: `https://www.hltv.org/matches/${id}`
       });
     }
 
